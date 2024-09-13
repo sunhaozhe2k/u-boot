@@ -21,6 +21,10 @@ properties:
           - const: st,stm32mp157
       - items:
           - enum:
+              - st,stm32f407-pro
+          - const: st,stm32f407
+      - items:
+          - enum:
               - st,stm32f429i-disco
               - st,stm32429i-eval
           - const: st,stm32f429

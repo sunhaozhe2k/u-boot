@@ -19,6 +19,7 @@ description: |
 properties:
   compatible:
     enum:
+      - st,stm32f407-pinctrl
       - st,stm32f429-pinctrl
       - st,stm32f469-pinctrl
       - st,stm32f746-pinctrl

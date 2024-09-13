@@ -12,7 +12,7 @@
 #include <stm32_rcc.h>
 #include <asm/io.h>
 #include <asm/arch/stm32.h>
-#include <asm/arch/stm32_pwr.h>
+#include <asm/arch-stm32f4/stm32_pwr.h>
 #include <dm/device_compat.h>
 #include <dt-bindings/mfd/stm32f7-rcc.h>
 #include <linux/bitops.h>
@@ -105,9 +105,9 @@ enum pllsai_div {
 static const struct stm32_clk_info stm32f4_clk_info = {
 	/* 180 MHz */
 	.sys_pll_psc = {
-		.pll_n = 360,
+		.pll_n = 336,
 		.pll_p = 2,
-		.pll_q = 8,
+		.pll_q = 4,
 		.ahb_psc = AHB_PSC_1,
 		.apb1_psc = APB_PSC_4,
 		.apb2_psc = APB_PSC_2,
@@ -206,29 +206,35 @@ static int configure_clocks(struct udevice *dev)
 		clrbits_le32(&regs->dckcfgr, RCC_DCKCFGRX_SDMMC1SEL);
 	}
 
-	/*
-	 * Configure the SAI PLL to generate LTDC pixel clock and
-	 * 48 Mhz for SDMMC and USB
-	 */
-	clrsetbits_le32(&regs->pllsaicfgr, RCC_PLLSAICFGR_PLLSAIP_MASK,
-			RCC_PLLSAICFGR_PLLSAIP_4);
-	clrsetbits_le32(&regs->pllsaicfgr, RCC_PLLSAICFGR_PLLSAIR_MASK,
-			RCC_PLLSAICFGR_PLLSAIR_3);
-	clrsetbits_le32(&regs->pllsaicfgr, RCC_PLLSAICFGR_PLLSAIN_MASK,
-			195 << RCC_PLLSAICFGR_PLLSAIN_SHIFT);
+	if(dev_get_driver_data(dev)!=STM32F407)
+	{
+		/*
+		* Configure the SAI PLL to generate LTDC pixel clock and
+		* 48 Mhz for SDMMC and USB
+		*/
+		clrsetbits_le32(&regs->pllsaicfgr, RCC_PLLSAICFGR_PLLSAIP_MASK,
+				RCC_PLLSAICFGR_PLLSAIP_4);
+		clrsetbits_le32(&regs->pllsaicfgr, RCC_PLLSAICFGR_PLLSAIR_MASK,
+				RCC_PLLSAICFGR_PLLSAIR_3);
+		clrsetbits_le32(&regs->pllsaicfgr, RCC_PLLSAICFGR_PLLSAIN_MASK,
+				195 << RCC_PLLSAICFGR_PLLSAIN_SHIFT);
 
-	clrsetbits_le32(&regs->dckcfgr, RCC_DCKCFGR_PLLSAIDIVR_MASK,
-			RCC_DCKCFGR_PLLSAIDIVR_2 << RCC_DCKCFGR_PLLSAIDIVR_SHIFT);
-
+		clrsetbits_le32(&regs->dckcfgr, RCC_DCKCFGR_PLLSAIDIVR_MASK,
+				RCC_DCKCFGR_PLLSAIDIVR_2 << RCC_DCKCFGR_PLLSAIDIVR_SHIFT);
+	}
+	
 	/* Enable the main PLL */
 	setbits_le32(&regs->cr, RCC_CR_PLLON);
 	while (!(readl(&regs->cr) & RCC_CR_PLLRDY))
 		;
 
-	/* Enable the SAI PLL */
-	setbits_le32(&regs->cr, RCC_CR_PLLSAION);
-	while (!(readl(&regs->cr) & RCC_CR_PLLSAIRDY))
-		;
+	if(dev_get_driver_data(dev)!=STM32F407)
+	{
+		/* Enable the SAI PLL */
+		setbits_le32(&regs->cr, RCC_CR_PLLSAION);
+		while (!(readl(&regs->cr) & RCC_CR_PLLSAIRDY))
+			;
+	}
 	setbits_le32(&regs->apb1enr, RCC_APB1ENR_PWREN);
 
 	if (priv->info.has_overdrive) {
@@ -635,6 +641,7 @@ static int stm32_clk_probe(struct udevice *dev)
 	priv->pllsaip = true;
 
 	switch (dev_get_driver_data(dev)) {
+	case STM32F407:
 	case STM32F42X:
 		priv->pllsaip = false;
 		/* fallback into STM32F469 case */

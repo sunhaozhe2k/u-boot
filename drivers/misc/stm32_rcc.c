@@ -14,6 +14,11 @@
 #include <dm/device_compat.h>
 #include <dm/lists.h>
 
+struct stm32_rcc_clk stm32_rcc_clk_f407 = {
+	.drv_name = "stm32fx_rcc_clock",
+	.soc = STM32F407,
+};
+
 struct stm32_rcc_clk stm32_rcc_clk_f42x = {
 	.drv_name = "stm32fx_rcc_clock",
 	.soc = STM32F42X,
@@ -77,6 +82,7 @@ static int stm32_rcc_bind(struct udevice *dev)
 }
 
 static const struct udevice_id stm32_rcc_ids[] = {
+	{.compatible = "st,stm32f407-rcc", .data = (ulong)&stm32_rcc_clk_f407 },
 	{.compatible = "st,stm32f42xx-rcc", .data = (ulong)&stm32_rcc_clk_f42x },
 	{.compatible = "st,stm32f469-rcc", .data = (ulong)&stm32_rcc_clk_f469 },
 	{.compatible = "st,stm32f746-rcc", .data = (ulong)&stm32_rcc_clk_f7 },

@@ -479,7 +479,8 @@ dtb-$(CONFIG_TARGET_TEN64) += fsl-ls1088a-ten64.dtb
 
 dtb-$(CONFIG_TARGET_STEMMY) += ste-ux500-samsung-stemmy.dtb
 
-dtb-$(CONFIG_STM32F4) += stm32f429-disco.dtb \
+dtb-$(CONFIG_STM32F4) += stm32f407-pro.dtb \
+	stm32f429-disco.dtb \
 	stm32429i-eval.dtb \
 	stm32f469-disco.dtb
 

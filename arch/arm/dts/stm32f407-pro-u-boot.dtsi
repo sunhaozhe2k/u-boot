@@ -1,0 +1,206 @@
+// SPDX-License-Identifier: GPL-2.0+
+/*
+* Copyright (C) 2017, STMicroelectronics - All Rights Reserved
+* Author(s): Patrice Chotard, <patrice.chotard@foss.st.com> for STMicroelectronics.
+*/
+
+#include <dt-bindings/memory/stm32-sdram.h>
+/{
+	clocks {
+		bootph-all;
+	};
+	
+	aliases {
+		/* Aliases for gpios so as to use sequence */
+		gpio0 = &gpioa;
+		gpio1 = &gpiob;
+		gpio2 = &gpioc;
+		gpio3 = &gpiod;
+		gpio4 = &gpioe;
+		gpio5 = &gpiof;
+		gpio6 = &gpiog;
+		gpio7 = &gpioh;
+		gpio8 = &gpioi;
+		gpio9 = &gpioj;
+		gpio10 = &gpiok;
+	};
+	
+	soc {
+		bootph-all;
+		fmc: fmc@A0000000 {
+			compatible = "st,stm32f4-fmc";
+			reg = <0xa0000000 0x1000>;
+			clocks = <&rcc 0 STM32F4_AHB3_CLOCK(FMC)>;
+			pinctrl-0 = <&fmc_pins>;
+			pinctrl-names = "default";
+			st,syscfg = <&syscfg>;
+			st,swp_fmc = <1>;
+			bootph-all;
+			
+			/*
+			* Memory configuration from sdram datasheet
+			* IS42S16400J
+			*/
+			bank1: bank@0 {
+				st,norsram-control = /bits/ 8 <
+				NORSRAM_BANK_3
+				NORSRAM_DATA_ADDR_MUX_DIS
+				NORSRAM_TYPE_SRAM
+				MWIDTH_16
+				NORSRAM_WAIT_SIGNAL_DIS
+				NORSRAM_WAIT_SIGNAL_POLARITY_LOW
+				NORSRAM_WAIT_SIGNAL_TIMING_BEFORE_WS
+				NORSRAM_WRAP_MODE_DIS
+				NORSRAM_WRITE_OP_EN
+				NORSRAM_EXTENDED_MODE_DIS
+				NORSRAM_ASYNCHRONOUS_WAIT_DIS
+				NORSRAM_BURST_ACCESS_MODE_DIS
+				NORSRAM_WRITE_BURST_DIS
+				NORSRAM_PAGE_SIZE_NONE>;
+				st,norsram-timing = /bits/ 8 <
+				3
+				1
+				6
+				0
+				2
+				2
+				NORSRAM_ACCESS_MODE_A>;
+			};
+		};
+	};
+};
+
+&clk_hse {
+	bootph-all;
+};
+
+&clk_i2s_ckin {
+	bootph-all;
+};
+
+&clk_lse {
+	bootph-all;
+};
+
+&gpioa {
+	bootph-all;
+};
+
+&gpiob {
+	bootph-all;
+};
+
+&gpioc {
+	bootph-all;
+};
+
+&gpiod {
+	bootph-all;
+};
+
+&gpioe {
+	bootph-all;
+};
+
+&gpiof {
+	bootph-all;
+};
+
+&gpiog {
+	bootph-all;
+};
+
+&gpioh {
+	bootph-all;
+};
+
+&gpioi {
+	bootph-all;
+};
+
+&gpioj {
+	status = "disabled";
+};
+
+&gpiok {
+	status = "disabled";
+};
+
+&pinctrl {
+	bootph-all;
+	
+	usart1_pins_a: usart1-0	{
+		bootph-all;
+		pins1 {
+			bootph-all;
+		};
+		pins2 {
+			bootph-all;
+		};
+	};
+	
+	fmc_pins: fmc@0 {
+		bootph-all;
+		pins
+		{
+			pinmux = <STM32_PINMUX('D',10, AF12)>, /* D15 */
+			<STM32_PINMUX('D', 9, AF12)>, /* D14 */
+			<STM32_PINMUX('D', 8, AF12)>, /* D13 */
+			<STM32_PINMUX('E',15, AF12)>, /* D12 */
+			<STM32_PINMUX('E',14, AF12)>, /* D11 */
+			<STM32_PINMUX('E',13, AF12)>, /* D10 */
+			<STM32_PINMUX('E',12, AF12)>, /* D09 */
+			<STM32_PINMUX('E',11, AF12)>, /* D08 */
+			<STM32_PINMUX('E',10, AF12)>, /* D07 */
+			<STM32_PINMUX('E', 9, AF12)>, /* D06 */
+			<STM32_PINMUX('E', 8, AF12)>, /* D05 */
+			<STM32_PINMUX('E', 7, AF12)>, /* D04 */
+			<STM32_PINMUX('D', 1, AF12)>, /* D03 */
+			<STM32_PINMUX('D', 0, AF12)>, /* D02 */
+			<STM32_PINMUX('D',15, AF12)>, /* D01 */
+			<STM32_PINMUX('D',14, AF12)>, /* D00 */
+			
+			<STM32_PINMUX('E', 0, AF12)>, /* NBL0 */
+			<STM32_PINMUX('E', 1, AF12)>, /* NBL1 */
+			
+			<STM32_PINMUX('D', 13, AF12)>, /* A18 */
+			<STM32_PINMUX('D', 12, AF12)>, /* A17 */
+			<STM32_PINMUX('D', 11, AF12)>, /* A16 */
+			<STM32_PINMUX('G', 5, AF12)>, /* A15 */
+			<STM32_PINMUX('G', 4, AF12)>, /* A14 */
+			<STM32_PINMUX('G', 3, AF12)>, /* A13 */
+			<STM32_PINMUX('G', 2, AF12)>, /* A12 */
+			<STM32_PINMUX('G', 1, AF12)>, /* A11 */
+			<STM32_PINMUX('G', 0, AF12)>, /* A10 */
+			<STM32_PINMUX('F',15, AF12)>, /* A09 */
+			<STM32_PINMUX('F',14, AF12)>, /* A08 */
+			<STM32_PINMUX('F',13, AF12)>, /* A07 */
+			<STM32_PINMUX('F',12, AF12)>, /* A06 */
+			<STM32_PINMUX('F', 5, AF12)>, /* A05 */
+			<STM32_PINMUX('F', 4, AF12)>, /* A04 */
+			<STM32_PINMUX('F', 3, AF12)>, /* A03 */
+			<STM32_PINMUX('F', 2, AF12)>, /* A02 */
+			<STM32_PINMUX('F', 1, AF12)>, /* A01 */
+			<STM32_PINMUX('F', 0, AF12)>, /* A00 */
+			
+			<STM32_PINMUX('G', 10, AF12)>, /* NE3 */
+			<STM32_PINMUX('D', 4, AF12)>, /* NOE */
+			<STM32_PINMUX('D', 5, AF12)>; /* NWE */
+			slew-rate = <3>;
+			drive-push-pull;
+			bootph-all;
+		};
+	};
+};
+
+&pwrcfg {
+	bootph-all;
+};
+
+&rcc {
+	bootph-all;
+};
+
+&timers5 {
+	bootph-all;
+};

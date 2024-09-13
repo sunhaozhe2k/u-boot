@@ -106,11 +106,65 @@ struct stm32_fmc_regs {
 
 #define FMC_SDSR_BUSY			BIT(5)
 
+// definitions for NORSRAM
+#define FMC_NORSRAM_MEMTYPE_NOR 0x02U
+
+#define FMC_NORSRAM_MEMTYPE_SHIFT 2
+#define FMC_NORSRAM_FLASH_ACCESS_SHIFT 6
+#define FMC_NORSRAM_DATA_ADDR_MUX_SHIFT 1
+#define FMC_NORSRAM_DATA_WIDTH_SHIFT 4
+#define FMC_NORSRAM_BURST_ACCESS_MODE_SHIFT 8
+#define FMC_NORSRAM_WAIT_SIGNAL_POLARITY_SHIFT 9
+#define FMC_NORSRAM_WRAP_MODE_SHIFT 16
+#define FMC_NORSRAM_WAIT_TIMING_BEFORE_DURING_SHIFT 11
+#define FMC_NORSRAM_WRITE_OPERATION_SHIFT 12
+#define FMC_NORSRAM_WAIT_SIGNAL_SHIFT 13
+#define FMC_NORSRAM_EXTENDED_MODE_SHIFT 14
+#define FMC_NORSRAM_ASYNCHRONOUS_WAIT_SHIFT 15
+#define FMC_NORSRAM_WRITE_BURST_SHIFT 19
+#define FMC_NORSRAM_PAGE_SIZE_SHIFT 16
+
+#define FMC_NORSRAM_TIMING_ADDR_HLD_SHIFT 4
+#define FMC_NORSRAM_TIMING_DATA_ST_SHIFT 8
+#define FMC_NORSRAM_TIMING_BUS_TURN_SHIFT 16
+#define FMC_NORSRAM_TIMING_CLK_DIV_SHIFT 20
+#define FMC_NORSRAM_TIMING_DATA_LAT_SHIFT 24
+#define FMC_NORSRAM_TIMING_ACCESS_MODE_SHIFT 28
+
+#define MAX_NORSRAM_BANK 4
+
 #define FMC_BUSY_WAIT(regs)	do { \
 		__asm__ __volatile__ ("dsb" : : : "memory"); \
 		while (regs->sdsr & FMC_SDSR_BUSY) \
 			; \
 	} while (0)
+
+struct stm32_norsram_control {
+	u8 ns_bank;
+	u8 data_address_mux;
+	u8 memory_type;
+	u8 data_width;
+	u8 wait_signal;
+	u8 wait_signal_polarity;
+	u8 wait_signal_active_timing;
+	u8 wrap_mode;
+	u8 write_operation;
+	u8 extended_mode;
+	u8 wait_async;
+	u8 access_burst;
+	u8 write_burst;
+	u8 page_size;
+};
+
+struct stm32_norsram_timing {
+	u8 addr_setup_time;
+	u8 addr_hold_time;
+	u8 data_setup_time;
+	u8 bus_turn_around_duration;
+	u8 clk_div;
+	u8 data_latency;
+	u8 access_mode;
+};
 
 struct stm32_sdram_control {
 	u8 no_columns;
@@ -132,28 +186,41 @@ struct stm32_sdram_timing {
 	u8 twr;
 	u8 trcd;
 };
+
 enum stm32_fmc_bank {
-	SDRAM_BANK1,
-	SDRAM_BANK2,
-	MAX_SDRAM_BANK,
+	NORSRAM_BANK1,
+	NAND_FLASH_BANK2,
+	NAND_FLASH_BANK3,
+	SDRAM_BANK4,
+	MAX_FMC_BANK,
 };
 
 enum stm32_fmc_family {
+	STM32F4_FMC,
 	STM32F7_FMC,
 	STM32H7_FMC,
 };
 
-struct bank_params {
+struct bank_norsram_params {
+	struct stm32_norsram_control *norsram_control;
+	struct stm32_norsram_timing *norsram_timing;
+	u32 norsram_ref_count;
+	enum stm32_fmc_bank target_bank;
+};
+
+struct bank_sdram_params {
 	struct stm32_sdram_control *sdram_control;
 	struct stm32_sdram_timing *sdram_timing;
 	u32 sdram_ref_count;
 	enum stm32_fmc_bank target_bank;
 };
 
-struct stm32_sdram_params {
+struct stm32_fmc_params {
 	struct stm32_fmc_regs *base;
+	u8 no_norsram_banks;
+	struct bank_norsram_params bank_norsram_params[MAX_NORSRAM_BANK];
 	u8 no_sdram_banks;
-	struct bank_params bank_params[MAX_SDRAM_BANK];
+	struct bank_sdram_params bank_sdram_params[MAX_FMC_BANK];
 	enum stm32_fmc_family family;
 };
 
@@ -161,9 +228,99 @@ struct stm32_sdram_params {
 #define SDRAM_MODE_CAS_SHIFT	4
 #define SDRAM_MODE_BL		0
 
+int stm32_norsram_init(struct udevice *dev)
+{
+	struct stm32_fmc_params *params = dev_get_plat(dev);
+	struct stm32_norsram_control *control;
+	struct stm32_norsram_timing *timing;
+	struct stm32_fmc_regs *regs = params->base;
+	u32 mask;
+	u32 bcr_value;
+	u32 btr_value;
+	u32 bwtr_value;
+	u8 flash_access;
+	u8 i;
+
+	for (i = 0; i < params->no_norsram_banks; i++) {
+		control = params->bank_norsram_params[i].norsram_control;
+		timing = params->bank_norsram_params[i].norsram_timing;
+
+		if(control->memory_type==FMC_NORSRAM_MEMTYPE_NOR)
+			flash_access = 1;
+		else
+			flash_access = 0;
+
+		bcr_value = (flash_access<<FMC_NORSRAM_FLASH_ACCESS_SHIFT
+			|control->data_address_mux <<FMC_NORSRAM_DATA_ADDR_MUX_SHIFT
+			|control->memory_type << FMC_NORSRAM_MEMTYPE_SHIFT
+			|control->data_width<<FMC_NORSRAM_DATA_WIDTH_SHIFT
+			|control->access_burst<<FMC_NORSRAM_BURST_ACCESS_MODE_SHIFT
+			|control->wait_signal_polarity<<FMC_NORSRAM_WAIT_SIGNAL_POLARITY_SHIFT
+			|control->wait_signal_active_timing<<FMC_NORSRAM_WAIT_TIMING_BEFORE_DURING_SHIFT       
+			|control->write_operation<<FMC_NORSRAM_WRITE_OPERATION_SHIFT
+			|control->wait_signal<<FMC_NORSRAM_WAIT_SIGNAL_SHIFT             
+			|control->extended_mode<<FMC_NORSRAM_EXTENDED_MODE_SHIFT           
+			|control->wait_async<<FMC_NORSRAM_ASYNCHRONOUS_WAIT_SHIFT
+			|control->write_burst<<FMC_NORSRAM_WRITE_BURST_SHIFT
+			|control->page_size<<FMC_NORSRAM_PAGE_SIZE_SHIFT
+			|control->wrap_mode<<FMC_NORSRAM_WRAP_MODE_SHIFT);
+
+		btr_value = (timing->addr_setup_time 
+			| timing->addr_hold_time << FMC_NORSRAM_TIMING_ADDR_HLD_SHIFT 
+			| timing->data_setup_time << FMC_NORSRAM_TIMING_DATA_ST_SHIFT 
+			| timing->bus_turn_around_duration << FMC_NORSRAM_TIMING_BUS_TURN_SHIFT 
+			| (timing->clk_div - 1) << FMC_NORSRAM_TIMING_CLK_DIV_SHIFT 
+			| (timing->data_latency - 2) << FMC_NORSRAM_TIMING_DATA_LAT_SHIFT 
+			| timing->access_mode << FMC_NORSRAM_TIMING_ACCESS_MODE_SHIFT);
+
+		bwtr_value = (timing->addr_setup_time
+		| timing->addr_hold_time << FMC_NORSRAM_TIMING_ADDR_HLD_SHIFT
+		| timing->data_setup_time << FMC_NORSRAM_TIMING_DATA_ST_SHIFT
+		| timing->bus_turn_around_duration << FMC_NORSRAM_TIMING_BUS_TURN_SHIFT
+		| timing->access_mode << FMC_NORSRAM_TIMING_ACCESS_MODE_SHIFT);
+		
+		mask=0xfff7f;
+
+		switch(control->ns_bank) {
+		case 0:
+			bcr_value |= (~mask & regs->bcr1);
+			writel(bcr_value,&regs->bcr1);
+			writel(btr_value,&regs->btr1);
+			writel(bwtr_value,&regs->bwtr1);
+			writel(bcr_value|0x01,&regs->bcr1);
+			break;
+		case 1:
+			bcr_value |= (~mask & regs->bcr2);
+			writel(bcr_value,&regs->bcr2);
+			writel(btr_value,&regs->btr2);
+			writel(bwtr_value,&regs->bwtr2);
+			writel(bcr_value|0x01,&regs->bcr2);
+			break;
+		case 2:
+			bcr_value |= (~mask & regs->bcr3);
+			writel(bcr_value,&regs->bcr3);
+			writel(btr_value,&regs->btr3);
+			writel(bwtr_value,&regs->bwtr3);
+			writel(bcr_value|0x01,&regs->bcr3);
+			break;
+		case 3:
+			bcr_value |= (~mask & regs->bcr4);
+			writel(bcr_value,&regs->bcr4);
+			writel(btr_value,&regs->btr4);
+			writel(bwtr_value,&regs->bwtr4);
+			writel(bcr_value|0x01,&regs->bcr4);
+			break;
+		default:
+			break;
+		}
+	}
+
+	return 0;
+}
+
 int stm32_sdram_init(struct udevice *dev)
 {
-	struct stm32_sdram_params *params = dev_get_plat(dev);
+	struct stm32_fmc_params *params = dev_get_plat(dev);
 	struct stm32_sdram_control *control;
 	struct stm32_sdram_timing *timing;
 	struct stm32_fmc_regs *regs = params->base;
@@ -177,10 +334,10 @@ int stm32_sdram_init(struct udevice *dev)
 		clrbits_le32(&regs->bcr1, FMC_BCR1_FMCEN);
 
 	for (i = 0; i < params->no_sdram_banks; i++) {
-		control = params->bank_params[i].sdram_control;
-		timing = params->bank_params[i].sdram_timing;
-		target_bank = params->bank_params[i].target_bank;
-		ref_count = params->bank_params[i].sdram_ref_count;
+		control = params->bank_sdram_params[i].sdram_control;
+		timing = params->bank_sdram_params[i].sdram_timing;
+		target_bank = params->bank_sdram_params[i].target_bank;
+		ref_count = params->bank_sdram_params[i].sdram_ref_count;
 
 		writel(control->sdclk << FMC_SDCR_SDCLK_SHIFT
 			| control->cas_latency << FMC_SDCR_CAS_SHIFT
@@ -192,7 +349,7 @@ int stm32_sdram_init(struct udevice *dev)
 			| control->rd_burst << FMC_SDCR_RBURST_SHIFT,
 			&regs->sdcr1);
 
-		if (target_bank == SDRAM_BANK2)
+		if (target_bank == NAND_FLASH_BANK3)
 			writel(control->cas_latency << FMC_SDCR_CAS_SHIFT
 				| control->no_banks << FMC_SDCR_NB_SHIFT
 				| control->memory_width << FMC_SDCR_MWID_SHIFT
@@ -209,7 +366,7 @@ int stm32_sdram_init(struct udevice *dev)
 			| timing->tmrd << FMC_SDTR_TMRD_SHIFT,
 			&regs->sdtr1);
 
-		if (target_bank == SDRAM_BANK2)
+		if (target_bank == NAND_FLASH_BANK3)
 			writel(timing->trcd << FMC_SDTR_TRCD_SHIFT
 				| timing->trp << FMC_SDTR_TRP_SHIFT
 				| timing->twr << FMC_SDTR_TWR_SHIFT
@@ -219,7 +376,7 @@ int stm32_sdram_init(struct udevice *dev)
 				| timing->tmrd << FMC_SDTR_TMRD_SHIFT,
 				&regs->sdtr2);
 
-		if (target_bank == SDRAM_BANK1)
+		if (target_bank == NAND_FLASH_BANK2)
 			ctb = FMC_SDCMR_BANK_1;
 		else
 			ctb = FMC_SDCMR_BANK_2;
@@ -260,8 +417,9 @@ int stm32_sdram_init(struct udevice *dev)
 
 static int stm32_fmc_of_to_plat(struct udevice *dev)
 {
-	struct stm32_sdram_params *params = dev_get_plat(dev);
-	struct bank_params *bank_params;
+	struct stm32_fmc_params *params = dev_get_plat(dev);
+	struct bank_norsram_params *bank_norsram_params;
+	struct bank_sdram_params *bank_sdram_params;
 	struct ofnode_phandle_args args;
 	u32 *syscfg_base;
 	u32 mem_remap;
@@ -270,6 +428,8 @@ static int stm32_fmc_of_to_plat(struct udevice *dev)
 	char *bank_name;
 	char _bank_name[128] = {0};
 	u8 bank = 0;
+	u8 norsram_bank = 0;
+	u8 sram_bank = 0;
 	int ret;
 
 	ret = dev_read_phandle_with_args(dev, "st,syscfg", NULL, 0, 0,
@@ -308,49 +468,91 @@ static int stm32_fmc_of_to_plat(struct udevice *dev)
 			pr_err("missing sdram bank index");
 			return -EINVAL;
 		}
+		
+		strict_strtoul(bank_name, 10, (long unsigned int *)&bank);
 
-		bank_params = &params->bank_params[bank];
-		strict_strtoul(bank_name, 10,
-			       (long unsigned int *)&bank_params->target_bank);
-
-		if (bank_params->target_bank >= MAX_SDRAM_BANK) {
-			pr_err("Found bank %d , but only bank 0 and 1 are supported",
-			      bank_params->target_bank);
+		if (bank >= MAX_FMC_BANK) {
+			pr_err("Found bank %d , but only bank 0, 1, 2, 3 are supported",
+			      bank);
 			return -EINVAL;
 		}
 
-		debug("Find bank %s %u\n", bank_name, bank_params->target_bank);
+		switch (bank)
+		{
+		case NORSRAM_BANK1:
+			bank_norsram_params = &params->bank_norsram_params[norsram_bank];
 
-		params->bank_params[bank].sdram_control =
-			(struct stm32_sdram_control *)
-			 ofnode_read_u8_array_ptr(bank_node,
-						  "st,sdram-control",
-						  sizeof(struct stm32_sdram_control));
+			debug("Find bank %s %u\n", bank_name, bank_norsram_params->target_bank);
 
-		if (!params->bank_params[bank].sdram_control) {
-			pr_err("st,sdram-control not found for %s",
-			      ofnode_get_name(bank_node));
-			return -EINVAL;
+			params->bank_norsram_params[norsram_bank].norsram_control =
+				(struct stm32_norsram_control *)
+				ofnode_read_u8_array_ptr(bank_node,
+							"st,norsram-control",
+							sizeof(struct stm32_norsram_control));
+
+			if (!params->bank_norsram_params[norsram_bank].norsram_control) {
+				pr_err("st,norsram-control not found for %s",
+					ofnode_get_name(bank_node));
+				return -EINVAL;
+			}
+
+			params->bank_norsram_params[norsram_bank].norsram_timing =
+				(struct stm32_norsram_timing *)
+				ofnode_read_u8_array_ptr(bank_node,
+							"st,norsram-timing",
+							sizeof(struct stm32_norsram_timing));
+
+			if (!params->bank_norsram_params[norsram_bank].norsram_timing) {
+				pr_err("st,norsram-timing not found for %s",
+					ofnode_get_name(bank_node));
+				return -EINVAL;
+			}
+			
+			norsram_bank++;
+			break;
+		case NAND_FLASH_BANK2:
+		case NAND_FLASH_BANK3:
+			bank_sdram_params = &params->bank_sdram_params[sram_bank];
+
+			debug("Find bank %s %u\n", bank_name, bank_sdram_params->target_bank);
+
+			params->bank_sdram_params[sram_bank].sdram_control =
+				(struct stm32_sdram_control *)
+				ofnode_read_u8_array_ptr(bank_node,
+							"st,sdram-control",
+							sizeof(struct stm32_sdram_control));
+
+			if (!params->bank_sdram_params[sram_bank].sdram_control) {
+				pr_err("st,sdram-control not found for %s",
+					ofnode_get_name(bank_node));
+				return -EINVAL;
+			}
+
+			params->bank_sdram_params[sram_bank].sdram_timing =
+				(struct stm32_sdram_timing *)
+				ofnode_read_u8_array_ptr(bank_node,
+							"st,sdram-timing",
+							sizeof(struct stm32_sdram_timing));
+
+			if (!params->bank_sdram_params[sram_bank].sdram_timing) {
+				pr_err("st,sdram-timing not found for %s",
+					ofnode_get_name(bank_node));
+				return -EINVAL;
+			}
+
+			bank_sdram_params->sdram_ref_count = ofnode_read_u32_default(bank_node,
+							"st,sdram-refcount", 8196);
+			sram_bank++;
+			break;
+		case SDRAM_BANK4:
+		default:
+			break;
 		}
-
-		params->bank_params[bank].sdram_timing =
-			(struct stm32_sdram_timing *)
-			 ofnode_read_u8_array_ptr(bank_node,
-						  "st,sdram-timing",
-						  sizeof(struct stm32_sdram_timing));
-
-		if (!params->bank_params[bank].sdram_timing) {
-			pr_err("st,sdram-timing not found for %s",
-			      ofnode_get_name(bank_node));
-			return -EINVAL;
-		}
-
-		bank_params->sdram_ref_count = ofnode_read_u32_default(bank_node,
-						"st,sdram-refcount", 8196);
-		bank++;
 	}
 
-	params->no_sdram_banks = bank;
+	params->no_norsram_banks = norsram_bank;
+	dev_dbg(dev, "no of banks = %d\n", params->no_norsram_banks);
+	params->no_sdram_banks = sram_bank;
 	dev_dbg(dev, "no of banks = %d\n", params->no_sdram_banks);
 
 	return 0;
@@ -358,7 +560,7 @@ static int stm32_fmc_of_to_plat(struct udevice *dev)
 
 static int stm32_fmc_probe(struct udevice *dev)
 {
-	struct stm32_sdram_params *params = dev_get_plat(dev);
+	struct stm32_fmc_params *params = dev_get_plat(dev);
 	int ret;
 	fdt_addr_t addr;
 
@@ -383,6 +585,10 @@ static int stm32_fmc_probe(struct udevice *dev)
 		return ret;
 	}
 #endif
+	ret = stm32_norsram_init(dev);
+	if (ret)
+		return ret;
+
 	ret = stm32_sdram_init(dev);
 	if (ret)
 		return ret;
@@ -400,7 +606,8 @@ static struct ram_ops stm32_fmc_ops = {
 };
 
 static const struct udevice_id stm32_fmc_ids[] = {
-	{ .compatible = "st,stm32-fmc", .data = STM32F7_FMC },
+	{ .compatible = "st,stm32f4-fmc", .data = STM32F4_FMC },
+	{ .compatible = "st,stm32f7-fmc", .data = STM32F7_FMC },
 	{ .compatible = "st,stm32h7-fmc", .data = STM32H7_FMC },
 	{ }
 };
@@ -412,5 +619,5 @@ U_BOOT_DRIVER(stm32_fmc) = {
 	.ops = &stm32_fmc_ops,
 	.of_to_plat = stm32_fmc_of_to_plat,
 	.probe = stm32_fmc_probe,
-	.plat_auto	= sizeof(struct stm32_sdram_params),
+	.plat_auto	= sizeof(struct stm32_fmc_params),
 };
