@@ -2,6 +2,6 @@ STM32F407-PRO BOARD
 M:	HaozheSun Lulko <sunhaozhe2k@outlook.com>
 S:	Maintained
 F:	doc/board/st/
-F:	board/st/stm32f429-discovery/
-F:	include/configs/stm32f429-discovery.h
-F:	configs/stm32f429-discovery_defconfig
+F:	board/st/stm32f407-pro/
+F:	include/configs/stm32f407-pro.h
+F:	configs/stm32f407-pro_defconfig
