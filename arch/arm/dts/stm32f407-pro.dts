@@ -26,6 +26,7 @@
 	
 	aliases {
 		serial0 = &usart1;
+		mmc0 = &sdio;
 	};
 	
 	leds {
@@ -47,6 +48,13 @@
 			linux,code = <KEY_HOME>;
 			gpios = <&gpioa 0 0>;
 		};
+	};
+	
+	vcc_3v3: vcc-3v3 {
+		compatible = "regulator-fixed";
+		regulator-name = "vcc_3v3";
+		regulator-min-microvolt = <3300000>;
+		regulator-max-microvolt = <3300000>;
 	};
 	
 	/* This turns on vbus for otg for host mode (dwc2) */
@@ -187,4 +195,15 @@
 	pinctrl-0 = <&usbotg_fs_pins_b>;
 	pinctrl-names = "default";
 	status = "okay";
+};
+
+&sdio {
+	status = "okay";
+	vmmc-supply = <&vcc_3v3>;
+	pinctrl-names = "default", "opendrain";
+	pinctrl-0 = <&sdio_pins>;
+	pinctrl-1 = <&sdio_pins_od>;
+	bus-width = <1>;
+
+	non-removable;
 };

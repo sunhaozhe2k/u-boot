@@ -23,6 +23,7 @@
 		gpio8 = &gpioi;
 		gpio9 = &gpioj;
 		gpio10 = &gpiok;
+		mmc0 = &sdio;
 	};
 	
 	soc {
