@@ -203,7 +203,7 @@
 	pinctrl-names = "default", "opendrain";
 	pinctrl-0 = <&sdio_pins>;
 	pinctrl-1 = <&sdio_pins_od>;
-	bus-width = <1>;
+	bus-width = <4>;
 
 	non-removable;
 };
